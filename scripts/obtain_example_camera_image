@@ -1,0 +1,63 @@
+#!/usr/local/bin/python3
+
+import pyhessio
+from ctapipe.utils.datasets import get_path
+from ctapipe.io.hessio import hessio_event_source
+from ctapipe import visualization, io
+from matplotlib import pyplot as plt
+from astropy import units as u
+from ctapipe.visualization import CameraDisplay
+from ctapipe.io import CameraGeometry
+import numpy as np
+import math
+
+def main():
+    source = hessio_event_source(get_path("/Users/Jason/Software/outputs/sim_telarray/simtel_run4_gcts_hnsb.gz"),
+                                 max_events=100)
+    event = next(source)
+    tels = list(event.dl0.tels_with_data)
+    teldata = event.dl0.tel[tels[0]]
+    img = teldata.adc_samples[0]
+
+    Qt = event.mc.tel[tels[0]].photo_electrons
+
+    maxarr = np.unravel_index(np.argmax(img), img.shape)
+    maxpix = maxarr[0]
+    maxT = maxarr[1]
+
+    winlen = 20
+    t = img[:, np.arange(maxT - math.floor(winlen / 2), maxT + math.floor(winlen / 2))]
+    Qm = t.sum(axis=1)
+
+    plt.rcParams['figure.figsize'] = (10.0, 8.0)
+
+
+    plt.subplot(131)
+    geom = CameraGeometry.guess(*event.meta.pixel_pos[tels[0]], event.meta.optical_foclen[tels[0]])
+    disp = CameraDisplay(geom)
+    disp.image = img[:, maxT]
+    disp.cmap = plt.cm.RdBu_r
+    disp.add_colorbar()
+    disp.set_limits_percent(95)  # autoscale
+
+    plt.subplot(132)
+    geom = CameraGeometry.guess(*event.meta.pixel_pos[tels[0]], event.meta.optical_foclen[tels[0]])
+    disp = CameraDisplay(geom)
+    disp.image = Qm
+    disp.cmap = plt.cm.RdBu_r
+    disp.add_colorbar()
+    disp.set_limits_percent(95)  # autoscale
+
+    plt.subplot(133)
+    geom = CameraGeometry.guess(*event.meta.pixel_pos[tels[0]], event.meta.optical_foclen[tels[0]])
+    disp = CameraDisplay(geom)
+    disp.image = Qt
+    disp.cmap = plt.cm.RdBu_r
+    disp.add_colorbar()
+    disp.set_limits_percent(95)  # autoscale
+
+    plt.show()
+
+
+if __name__ == '__main__':
+    main()

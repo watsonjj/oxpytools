@@ -1,0 +1,44 @@
+import numpy as np
+from astropy.io import fits
+from tqdm import tqdm
+from ctapipe.utils.datasets import get_path
+from ctapipe.io.hessio import hessio_event_source
+import os.path
+import math
+import sys
+
+# filepath = get_path("http://cta.cppm.in2p3.fr/MeudonPrototype/simtel/simtel_proton_30deg_r1000/simtel_runmeudon_proton_30tel_30deg_1.gz")
+filepath = get_path(sys.argv[1])
+
+events_per_byte = 16673/2150294565
+
+est_events = os.path.getsize(filepath) * events_per_byte
+source = hessio_event_source(filepath)#, max_events=10)
+
+nevents = 0
+l = []
+with tqdm(total=est_events, desc="Extracting events from sim_telarray file", smoothing=0) as pbar:
+    for event in source:
+        for t in event.dl0.tel:
+            pbar.update(1)
+            nevents += 1
+
+            # img = event.dl0.tel[t].adc_samples[0]
+            # maxarr = np.unravel_index(np.argmax(img), img.shape)
+            # maxT = maxarr[1]
+            # winlen = 20
+            # slices = img[:,maxarr[1]]
+            # integrated = slices#.sum(axis=1)
+            # l.append(integrated)
+
+            Qt = event.mc.tel[t].photo_electrons
+            l.append(Qt)
+
+print("Excess events = ", est_events - nevents)
+
+fits_array = np.array(l, dtype=np.int64)  # Convert from uint64 to int64 (avoid fits issues)
+# fits_array[0][0] = np.nan
+hdu = fits.PrimaryHDU(fits_array)
+output = os.path.join(os.path.dirname(os.path.realpath(filepath)),os.path.basename(filepath)+'.fits')
+hdu.writeto(output, clobber=True)
+print("Output = ", output)
