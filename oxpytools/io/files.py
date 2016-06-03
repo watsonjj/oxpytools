@@ -28,7 +28,7 @@ class InputFile:
 
         self.__input_path = path.as_posix()
         self.directory = dirname(self.__input_path)
-        self.filename = basename(self.__input_path)
+        self.filename = splitext(basename(self.__input_path))[0]
         self.extension = splitext(self.__input_path)[1]
 
         try:

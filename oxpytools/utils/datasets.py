@@ -13,3 +13,5 @@ def get_oxpytools_extra_path(filename):
             raise FileNotFoundError
     except FileNotFoundError as e:
         log.exception("file path does not exist: '{}'".format(dataset))
+
+    return dataset
