@@ -1,0 +1,8 @@
+
+
+primes
+================
+
+.. currentmodule:: oxpytools
+
+.. autofunction:: primes
