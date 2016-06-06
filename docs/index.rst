@@ -1,17 +1,44 @@
-Documentation
-=============
+.. _ctapipe:
 
-This is an affiliated package for the AstroPy package. The documentation for
-this package is here:
+==========================================
+ Oxford GCT Python Tools (:mod:`oxpytools`)
+==========================================
+
+**version**:  |version|
+
+.. image:: event.png
+   :align: center
+   :width: 90%
+
+What is oxpytools?
+==================
+
+`oxpytools` is a python package that utilises both `ctapipe` and `targetio` for processing
+of both simulation data and GCT data.
+
+* Code, feature requests, bug reports, pull requests: https://github.com/watsonjj/oxpytools
+* Docs: https://watsonjj.github.io/oxpytools
+* License: BSD-3
+* Python 3.5 or later (Python 2 is not supported)
+
+.. _oxpytools_docs:
+
+General documentation
+=====================
 
 .. toctree::
-  :maxdepth: 2
+  :maxdepth: 1
+  :glob:
 
-  oxpytools/index.rst
+  getting_started/index
+  development/index
+  */index
 
-.. note:: The layout of this directory is simply a suggestion.  To follow
-          traditional practice, do *not* edit this page, but instead place
-          all documentation for the affiliated package inside ``oxpytools/``.
-          The traditional practice was intended to allow the affiliated
-          package to eventually be merged into the main astropy package.
-          You can follow this practice or choose your own layout.
+  
+Development Help
+================
+
+* Development workflow examples from AstroPy: http://astropy.readthedocs.org/en/latest/development/workflow/development_workflow.html
+* GIT tutorial: https://www.atlassian.com/git/tutorials/syncing/git-pull
+* Code distribution and Packaging https://packaging.python.org/en/latest/
+  
