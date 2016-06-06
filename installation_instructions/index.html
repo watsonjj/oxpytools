@@ -1,0 +1,254 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Installation Instructions &mdash; oxpytools v0.0.dev241</title>
+  
+
+  
+  
+    <link rel="shortcut icon" href="../_static/astropy_logo.ico"/>
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="oxpytools v0.0.dev241" href="../index.html"/>
+        <link rel="prev" title="Oxford GCT Python Tools (oxpytools)" href="../index.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> oxpytools
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.0.dev241
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="">Installation Instructions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#get-the-oxpytools-software">Get the oxpytools software</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#developing-code">Developing Code</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">oxpytools</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+    <li>Installation Instructions</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/installation_instructions/index.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="installation-instructions">
+<span id="getting-started"></span><h1>Installation Instructions<a class="headerlink" href="#installation-instructions" title="Permalink to this headline">¶</a></h1>
+<p>This guide assumes you are using the <em>Anaconda</em> python distribution, installed locally. This handles the creation of virtual environments which will allow you to control the dependency libraries independently of other python projects. The creation and initiallisation of this virtual environment is covered in the installation instructions for ctapipe.</p>
+<div class="section" id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>ctapipe: <a class="reference external" href="https://cta-observatory.github.io/ctapipe/getting_started/index.html">https://cta-observatory.github.io/ctapipe/getting_started/index.html</a></li>
+<li>targetdriver (python install): <a class="reference external" href="https://forge.in2p3.fr/projects/target/repository/targetdriver">https://forge.in2p3.fr/projects/target/repository/targetdriver</a></li>
+<li>targetio (python install): <a class="reference external" href="https://forge.in2p3.fr/projects/target/repository/targetio">https://forge.in2p3.fr/projects/target/repository/targetio</a></li>
+</ul>
+<p>Additional pip modules:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>pip install tqdm
+</pre></div>
+</div>
+</div>
+<div class="section" id="get-the-oxpytools-software">
+<h2>Get the oxpytools software<a class="headerlink" href="#get-the-oxpytools-software" title="Permalink to this headline">¶</a></h2>
+<p>Check out the <a class="reference external" href="https://github.com/watsonjj/oxpytools">oxpytools</a> repo:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>mkdir oxpytools
+git clone https://github.com/watsonjj/oxpytools.git
+</pre></div>
+</div>
+<p>Now setup this checked out version for development:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="nb">cd</span> oxpytools
+make init     <span class="c1"># will fetch required sub-repos and set up package</span>
+make develop  <span class="c1"># will make symlinks in your python library dir</span>
+</pre></div>
+</div>
+<p>Make sure the tests and examples code finds the test and example files.
+Run the tests to make sure everything is OK:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>make <span class="nb">test</span>
+</pre></div>
+</div>
+<p>Build the HTML docs locally and open them in your web browser:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>make doc-show
+</pre></div>
+</div>
+<p>To update to the latest development version (merging in remote changes
+to your local working copy):</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>git pull
+</pre></div>
+</div>
+</div>
+<div class="section" id="developing-code">
+<h2>Developing Code<a class="headerlink" href="#developing-code" title="Permalink to this headline">¶</a></h2>
+<p>Checking out oxpytools in the manner described above is read-only, meaning that if you want to commit a change, you cannot (the master repo is locked to only the managers). Therefore, in order to develop, you need to make a personal fork on GitHub.
+This is described in the AstroPy documentation <a class="reference external" href="http://astropy.readthedocs.org/en/latest/development/workflow/get_devel_version.html#get-devel">http://astropy.readthedocs.org/en/latest/development/workflow/get_devel_version.html#get-devel</a> .  You would need to of course change any reference to &#8220;astropy&#8221; the package to &#8220;oxpytools&#8221; and &#8220;astropy&#8221; the organization to &#8220;watsonjj&#8221;, but the instructions should work.</p>
+<p>Even easier (if you are on a Mac computer) is to use the <a class="reference external" href="https://desktop.github.com/">github-desktop GUI</a>, which can do all of it for you automatically. It will handle the forking, syncing, and even allow you to issue pull-requests.</p>
+</div>
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="../index.html" class="btn btn-neutral" title="Oxford GCT Python Tools (oxpytools)" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Jason Watson.
+      Last updated on 06 Jun 2016.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'0.0.dev241',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
