@@ -1,7 +1,7 @@
 # Makefile with some convenient quick ways to do common things
 
 PROJECT=oxpytools
-PYTHON=python
+PYTHON=OXPYTOOLS_EXTRA_DIR=${PWD}/oxpytools-extra python
 
 help:
 	@echo ''

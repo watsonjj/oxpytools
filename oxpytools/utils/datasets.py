@@ -4,6 +4,8 @@
 
 from pathlib import Path
 from astropy import log
+import os
+import oxpytools
 
 
 def get_oxpytools_extra_path(filename):
@@ -23,8 +25,13 @@ def get_oxpytools_extra_path(filename):
 
     """
 
-    import oxpytools
-    path = Path(oxpytools.__file__).parent.parent.joinpath('oxpytools-extra')
+    environ_variable_name = 'OXPYTOOLS_EXTRA_DIR'
+
+    try:
+        path = Path(os.environ[environ_variable_name])
+    except KeyError:
+        path = Path(oxpytools.__file__).parent.parent.joinpath('oxpytools-extra')
+
     dataset = Path(path.joinpath('datasets').joinpath(filename))
     try:
         if not dataset.exists():

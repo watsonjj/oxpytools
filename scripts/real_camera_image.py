@@ -1,5 +1,5 @@
 import target_io
-import target_driver
+# import target_driver
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.gridspec as gridspec
@@ -55,12 +55,12 @@ print("number of events", nEvents)
 event_index = 0
 for ipack in range(reader.GetNPacketsPerEvent()):
     event_packet = reader.GetEventPacket(event_index, ipack)
-    packet = target_driver.DataPacket()
+    packet = target_io.DataPacket()
     packet.Assign(event_packet, reader.GetPacketSize())
     if packet.GetSlotID() > 0:
         continue
     print("SlotID = ", packet.GetSlotID())
-    # print("ChannelID = ", packet.GetChannelID())
+    print("ChannelID = ", packet.GetChannelID())
     print("ASICID = ", packet.GetASICID())
     # print("WaveformLength = ", packet.GetWaveformLength())
     # print("NumberOfWaveforms = ", packet.GetNumberOfWaveforms())
@@ -68,11 +68,12 @@ for ipack in range(reader.GetNPacketsPerEvent()):
     for iwav in range(packet.GetNumberOfWaveforms()):
         wav = packet.GetWaveform(iwav)
         print("ChannelID = ", wav.GetChannel())
+        print("ASIC = ", wav.GetASIC())
         waveform = np.zeros(wav.GetSamples())
         # print("Samples = ", wav.GetSamples())
         for isam in range(wav.GetSamples()):
             waveform[isam] = wav.GetADC(isam)
 
         plt.plot(waveform)
-        plt.show()
+        # plt.show()
 

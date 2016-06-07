@@ -8,6 +8,10 @@ from pathlib import Path
 from os.path import basename, splitext, dirname
 from astropy import log
 
+from .targetio import targetio_event_source
+from ctapipe.utils.datasets import get_path
+from ctapipe.io.hessio import hessio_event_source
+
 
 class InputFile:
     """
@@ -48,6 +52,9 @@ class InputFile:
 
         self.input_path = input_path
 
+        log.info("[file] {}".format(self.input_path))
+        log.info("[file][type] {}".format(self.type))
+
     @property
     def input_path(self):
         return self.__input_path
@@ -68,10 +75,31 @@ class InputFile:
 
         try:
             if self.extension == ".gz":
-                self.type = "simtel"
+                self.type = "hessio"
             elif self.extension == ".fits":
-                self.type = "target"
+                self.type = "targetio"
             else:
-                raise RuntimeError("unknown file extension '{}'".format(self.__input_path))
+                raise RuntimeError()
         except RuntimeError as e:
             log.exception("unknown file extension '{}'".format(self.__input_path))
+
+    def read(self):
+        """
+        Read the file using the appropriate method depending on the file type
+
+        Returns
+        -------
+        source : generator
+            A generator that can be iterated over to obtain events
+
+        """
+
+        try:
+            if self.type == "hessio":
+                return hessio_event_source(get_path(self.input_path))
+            elif self.type == "targetio":
+                return targetio_event_source(self.input_path)
+            else:
+                raise RuntimeError()
+        except RuntimeError as e:
+            log.exception("unknown file type '{}'".format(self.type))

@@ -11,7 +11,10 @@ def test_inputfile_simtelarray():
     assert file.directory == datasets_path.as_posix()
     assert file.extension == ".gz"
     assert file.filename == "sim_telarray_trueq"
-    assert file.type == "simtel"
+    assert file.type == "hessio"
+    source = file.read()
+    event = next(source)
+    assert event.dl0.tels_with_data == {1}
 
 
 def test_inputfile_target():
@@ -22,4 +25,7 @@ def test_inputfile_target():
     assert file.directory == datasets_path.as_posix()
     assert file.extension == ".fits"
     assert file.filename == "target_sky"
-    assert file.type == "target"
+    assert file.type == "targetio"
+    source = file.read()
+    event = next(source)
+    assert event.dl0.tels_with_data == {0}
