@@ -5,7 +5,7 @@ The classes defined in this module are to hold files the will be read or wrote.
 """
 
 from pathlib import Path
-from os.path import basename, splitext, dirname
+from os.path import basename, splitext, dirname, join
 from astropy import log
 
 from .targetio import targetio_event_source
@@ -42,6 +42,8 @@ class InputFile:
         ----------
         input_path : str
             Full path to the file
+        output_directory : str
+            Directory to save outputs for this file
 
         """
         self.__input_path = None
@@ -49,6 +51,7 @@ class InputFile:
         self.filename = None
         self.extension = None
         self.type = None
+        self.output_directory = None
 
         self.input_path = input_path
 
@@ -72,6 +75,7 @@ class InputFile:
         self.directory = dirname(self.__input_path)
         self.filename = splitext(basename(self.__input_path))[0]
         self.extension = splitext(self.__input_path)[1]
+        self.output_directory = join(self.directory, self.filename)
 
         try:
             if self.extension == ".gz":
@@ -103,3 +107,28 @@ class InputFile:
                 raise RuntimeError()
         except RuntimeError as e:
             log.exception("unknown file type '{}'".format(self.type))
+
+    def get_event(self, event_req, id_flag=False):
+        """
+        Loop through events until the requested event is found
+
+        Parameters
+        ----------
+        event_req : int
+            Event index requested
+        id_flag : bool
+            'event_req' refers to event_id instead of event_index
+
+        Returns
+        -------
+        event : `ctapipe` event-container
+
+        """
+        source = self.read()
+        for event in source:
+            event_id = event.dl0.event_id
+            index = event.count if not id_flag else event_id
+            if not index == event_req:
+                log.debug("[event_id] skipping event: {}".format(event_id))
+                continue
+            return event

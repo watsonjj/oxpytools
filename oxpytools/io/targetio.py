@@ -33,9 +33,17 @@ def get_targetio_event(reader, event_index):
 
     """
 
-    unsorted_adc_samples = []
-    pixel_ids = []
-    max_samples = 0
+    # Get the sample size of the waveforms
+    event_packet = reader.GetEventPacket(0, 0)
+    packet = target_io.DataPacket()
+    packet.Assign(event_packet, reader.GetPacketSize())
+    wav = packet.GetWaveform(0)
+    num_samples = wav.GetSamples()
+
+    # unsorted_adc_samples = []
+    # pixel_ids = []
+    event = np.zeros((2048, num_samples))
+
     for ipack in range(reader.GetNPacketsPerEvent()):
         event_packet = reader.GetEventPacket(event_index, ipack)
         packet = target_io.DataPacket()
@@ -46,16 +54,9 @@ def get_targetio_event(reader, event_index):
             asic = wav.GetASIC()
             channel = wav.GetChannel()
             pixel_id = get_pixel_id(module, asic, channel)
-            waveform = np.zeros(wav.GetSamples())
-            if max_samples < wav.GetSamples():
-                max_samples = wav.GetSamples()
             for isam in range(wav.GetSamples()):
-                waveform[isam] = wav.GetADC(isam)
-            unsorted_adc_samples.append(waveform)
-            pixel_ids.append(pixel_id)
-    npix = len(unsorted_adc_samples)
-    sort = np.array(pixel_ids).argsort()
-    event = np.array(unsorted_adc_samples)[sort]
+                event[pixel_id, isam] = wav.GetADC(isam)
+
     return event
 
 
