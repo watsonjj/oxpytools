@@ -104,7 +104,7 @@ def main():
 
     camera = plotter.draw_camera(tel, data[:, 0], ax2)
     ax2.set_title("[Input] {} [Event] {} [Telescope] {} [Channel] {} "
-                  "[Time] {}-{}".format(input_file.filename, event_id, tel,
+                  "[Time] {}-{} UNCALIBRATED".format(input_file.filename, event_id, tel,
                                         channel, t0, t1))
 
     if args.maxpix_f:
@@ -125,18 +125,27 @@ def main():
         ax1.set_title("Pixel: {}".format(p1))
         camera.image = data[:, t0]
         ax2.set_title("[Input] {} [Event] {} [Telescope] {} [Channel] {} "
-                      "[Time] {}".format(input_file.filename, event_id, tel,
+                      "[Time] {} UNCALIBRATED".format(input_file.filename, event_id, tel,
                                             channel, t0, t1))
         plotter.draw_camera_pixel_annotation(tel, p0, p1, ax2)
         plotter.draw_camera_pixel_ids(tel, ax2)
 
-        plt.show()
+        output_name = "{}_e{}_t{}_c{}_maxpix.pdf".format(input_file.filename,
+                                                         event_id, tel,
+                                                         channel)
+        output_path = os.path.join(input_file.output_directory, output_name)
+        if not os.path.exists(os.path.dirname(output_path)):
+            log.info("[output] Creating directory: {}".format(
+                os.path.dirname(output_path)))
+            os.makedirs(os.path.dirname(output_path))
+        log.info("[output] {}".format(output_path))
+        plt.savefig(output_path, format='pdf')
 
     else:
         plotter.draw_camera_pixel_annotation(tel, args.pixels[0],
                                              args.pixels[1], ax2)
         # Create animation
-        div = 5
+        div = 3
         increment = 1/div
         n_frames = int((t1 - t0)/increment)
         interval = int(500*increment)
@@ -159,7 +168,7 @@ def main():
                 line1.set_xdata(t0+(i/div))
                 return line1, line0
 
-            anim = animation.FuncAnimation(fig, animate, frames=4,
+            anim = animation.FuncAnimation(fig, animate, frames=n_frames,
                                            interval=interval, blit=True)
             anim.save(output_path, writer='imagemagick')
     log.info("[COMPLETE]")

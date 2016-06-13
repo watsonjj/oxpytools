@@ -11,6 +11,7 @@ from astropy import units as u
 
 from tqdm import tqdm
 
+from numpy import sqrt
 
 class EventPlotter:
     """
@@ -81,7 +82,9 @@ class EventPlotter:
                   smoothing=0) as pbar:
             for pix in range(len(geom.pix_x)):
                 pbar.update(1)
-                axes.text(u.Quantity(geom.pix_x).value[pix], u.Quantity(geom.pix_y).value[pix], pix, fontsize=2)
+                x = u.Quantity(geom.pix_x).value[pix]
+                y = u.Quantity(geom.pix_y).value[pix]
+                axes.text(x, y, pix, fontsize=2, ha='center')
 
     def draw_camera_pixel_annotation(self, tel, p0, p1, axes=None):
         """
