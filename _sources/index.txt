@@ -19,7 +19,7 @@ of both simulation data and GCT data.
 * Code, feature requests, bug reports, pull requests: https://github.com/watsonjj/oxpytools
 * Docs: https://watsonjj.github.io/oxpytools
 * License: BSD-3
-* Python 3.4 or later (Python 2 is not supported)
+* Python 3.5 or later (Python 2 is not supported)
 
 .. _oxpytools_docs:
 

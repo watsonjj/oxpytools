@@ -4,14 +4,13 @@
 Installation Instructions
 *************************
 
-This guide assumes you are using the *Anaconda* python distribution, installed locally. This handles the creation of virtual environments which will allow you to control the dependency libraries independently of other python projects. The creation and initiallisation of this virtual environment is covered in the installation instructions for ctapipe.
+This guide assumes you are using the *Anaconda* python distribution, installed locally. This handles the creation of virtual environments which will allow you to control the dependency libraries independently of other python projects. The creation and initiallisation of this virtual environment is covered in the installation instructions for ctapipe. A python 3.5 environment is required for this project.
 
 ------------
 Dependencies
 ------------
 
 * ctapipe: https://cta-observatory.github.io/ctapipe/getting_started/index.html
-* targetdriver (python install): https://forge.in2p3.fr/projects/target/repository/targetdriver
 * targetio (python install): https://forge.in2p3.fr/projects/target/repository/targetio
 
 Additional pip modules:
