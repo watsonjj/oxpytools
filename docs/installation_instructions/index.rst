@@ -11,7 +11,6 @@ Dependencies
 ------------
 
 * ctapipe: https://cta-observatory.github.io/ctapipe/getting_started/index.html
-* targetdriver (python install): https://forge.in2p3.fr/projects/target/repository/targetdriver
 * targetio (python install): https://forge.in2p3.fr/projects/target/repository/targetio
 
 Additional pip modules:
