@@ -1,44 +1,85 @@
-import numpy as np
+#!python
+
+from astropy.utils.compat import argparse
+from astropy import log
 from astropy.io import fits
+from astropy.table import Table, Column
+
+from oxpytools.io.files import InputFile
+from oxpytools.plotting.event import EventPlotter
+
+from matplotlib import pyplot as plt
+from matplotlib import animation
+
+import numpy as np
 from tqdm import tqdm
-from ctapipe.utils.datasets import get_path
-from ctapipe.io.hessio import hessio_event_source
-import os.path
-import math
-import sys
+import os
 
-# filepath = get_path("http://cta.cppm.in2p3.fr/MeudonPrototype/simtel/simtel_proton_30deg_r1000/simtel_runmeudon_proton_30tel_30deg_1.gz")
-filepath = get_path(sys.argv[1])
 
-events_per_byte = 16673/2150294565
+def main():
+    parser = argparse.ArgumentParser(description='Create a gif of an event')
+    parser.add_argument('-f', '--file', dest='input_path', action='store',
+                        required=True, help='path to the input file')
+    parser.add_argument('-o', '--output', dest='output_path', action='store',
+                        required=True, help='path of the output fits file')
+    parser.add_argument('-S', '--scheme', dest='scheme', action='store',
+                        default=0,
+                        help='which scheme should be used to extract the '
+                             'charge e.g.:'
+                             '\n - 0 = true charge')
 
-est_events = os.path.getsize(filepath) * events_per_byte
-source = hessio_event_source(filepath)#, max_events=10)
+    logger_detail = parser.add_mutually_exclusive_group()
+    logger_detail.add_argument('-q', '--quiet', dest='quiet',
+                               action='store_true', default=False,
+                               help='Quiet mode')
+    logger_detail.add_argument('-v', '--verbose', dest='verbose',
+                               action='store_true', default=False,
+                               help='Verbose mode')
+    logger_detail.add_argument('-d', '--debug', dest='debug',
+                               action='store_true', default=False,
+                               help='Debug mode')
 
-nevents = 0
-l = []
-with tqdm(total=est_events, desc="Extracting events from sim_telarray file", smoothing=0) as pbar:
-    for event in source:
-        for t in event.dl0.tel:
-            pbar.update(1)
-            nevents += 1
+    args = parser.parse_args()
 
-            # img = event.dl0.tel[t].adc_samples[0]
-            # maxarr = np.unravel_index(np.argmax(img), img.shape)
-            # maxT = maxarr[1]
-            # winlen = 20
-            # slices = img[:,maxarr[1]]
-            # integrated = slices#.sum(axis=1)
-            # l.append(integrated)
+    if args.quiet:
+        log.setLevel(40)
+    if args.verbose:
+        log.setLevel(20)
+    if args.debug:
+        log.setLevel(10)
 
-            Qt = event.mc.tel[t].photo_electrons
-            l.append(Qt)
+    log.info("[SCRIPT] write_img_fits")
 
-print("Excess events = ", est_events - nevents)
+    log.debug("[file] Reading file")
+    input_file = InputFile(args.input_path)
+    source = input_file.read()
 
-fits_array = np.array(l, dtype=np.int64)  # Convert from uint64 to int64 (avoid fits issues)
-# fits_array[0][0] = np.nan
-hdu = fits.PrimaryHDU(fits_array)
-output = os.path.join(os.path.dirname(os.path.realpath(filepath)),os.path.basename(filepath)+'.fits')
-hdu.writeto(output, clobber=True)
-print("Output = ", output)
+    table = Table(names=('event_index', 'event_id', 'telescope', 'energy', 'img'),
+              dtype=('i4', 'i4', 'i4', 'f8', '2048f8'))
+
+    with tqdm(total=1, desc="Extracting events from file") as pbar:
+        for event in source:
+            event_index = event.count
+            event_id = event.dl0.event_id
+            energy = event.mc.energy
+
+            if event_index > 10: break
+
+            for tel in event.dl0.tel:
+                img = event.mc.tel[tel].photo_electrons
+                table.add_row((event_index, event_id, tel, energy, img))
+                pbar.update(1)
+
+    if not os.path.exists(os.path.dirname(args.output_path)):
+        log.info("[output] Creating directory: {}".format(
+            os.path.dirname(args.output_path)))
+        os.makedirs(os.path.dirname(args.output_path))
+    if os.path.exists(args.output_path):
+        os.remove(args.output_path)
+    table.write(args.output_path)
+    log.info("[output] {}".format(args.output_path))
+
+    log.info("[COMPLETE]")
+
+if __name__ == '__main__':
+    main()

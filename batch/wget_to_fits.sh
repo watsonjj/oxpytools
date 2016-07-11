@@ -9,7 +9,7 @@ proton() {
 	    wget ${directory}${name} &>${local_directory}${name}_progress.txt
 	fi
 	source activate cta
-	python ~/Software/OxPyTools/bin/write_img_fits ${local_directory}${name} &>${local_directory}${name}_progress.txt
+	python ~/Software/OxPyTools/bin/write_img_fits -f ${local_directory}${name} -o ${local_directory}${name}.fits &>${local_directory}${name}_progress.txt
 }
 export -f proton
 gamma() {
@@ -21,11 +21,9 @@ gamma() {
 	    wget ${directory}${name} &>${local_directory}${name}_progress.txt
 	fi
 	source activate cta
-	python ~/Software/OxPyTools/bin/write_img_fits ${local_directory}${name} &>${local_directory}${name}_progress.txt
+	python ~/Software/OxPyTools/bin/write_img_fits -f ${local_directory}${name}  -o ${local_directory}${name}.fits  &>${local_directory}${name}_progress.txt
 }
 export -f gamma
 
-# parallel --bar proton ::: 1 2
-
-# parallel --bar proton ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
-parallel --bar -j 4 gamma ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
+parallel --bar proton ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
+parallel --bar gamma ::: 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
