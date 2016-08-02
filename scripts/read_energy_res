@@ -1,0 +1,135 @@
+#!python
+
+from astropy.utils.compat import argparse
+from astropy import log
+from astropy.io import ascii
+from astropy.table import Table
+from astropy import units as u
+from astropy.stats import histogram
+from astropy.modeling import models, fitting
+
+from matplotlib import pyplot as plt
+
+from oxpytools.io.files import InputFile
+
+import os
+
+import numpy as np
+from math import sqrt, ceil, log as logarithm
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Create a gif of an event')
+    parser.add_argument('-f', '--file', dest='input_paths', action='store', nargs='*',
+                        required=True, help='path to the input files')
+
+    logger_detail = parser.add_mutually_exclusive_group()
+    logger_detail.add_argument('-q', '--quiet', dest='quiet',
+                               action='store_true', default=False,
+                               help='Quiet mode')
+    logger_detail.add_argument('-v', '--verbose', dest='verbose',
+                               action='store_true', default=False,
+                               help='Verbose mode')
+    logger_detail.add_argument('-d', '--debug', dest='debug',
+                               action='store_true', default=False,
+                               help='Debug mode')
+
+    args = parser.parse_args()
+
+    if args.quiet:
+        log.setLevel(40)
+    if args.verbose:
+        log.setLevel(20)
+    if args.debug:
+        log.setLevel(10)
+
+    # Init figs
+    fig_bias = plt.figure(figsize=(24, 10))
+    fig_res = plt.figure(figsize=(24, 10))
+
+    output_directory = "/Users/Jason/Software/outputs/readhess/energy_res"
+    if not os.path.exists(output_directory):
+        log.info("[output] Creating directory: {}".format(output_directory))
+        os.makedirs(output_directory)
+
+    for filepath in args.input_paths:
+        input_file = InputFile(filepath)
+        input_path = input_file.input_path
+
+        # Replace '|' in file
+        import fileinput
+        with fileinput.FileInput(input_path, inplace=True) as f:
+            for line in f:
+                print(line.replace('|', '\t'), end='')
+
+        # Read data
+        data_logarithmic = ascii.read(input_path, include_names=["col1","col26"])
+        data_logarithmic.rename_column('col1', 'logE_M')
+        data_logarithmic.rename_column('col26', 'logE_T')
+
+        # Convert data from logarithmic
+        data = Table([np.power(10,data_logarithmic['logE_M']),
+                      np.power(10,data_logarithmic['logE_T'])],
+                     names=('E_M', 'E_T'))
+
+        sep = 0.2
+        bins = np.round(data_logarithmic['logE_T'] / sep)
+        data_grouped = data.group_by(bins)
+        energy_bins = np.unique(bins * sep)
+
+        n_ax = len(data_grouped.groups)
+        n_ax_sq = ceil(sqrt(n_ax))
+        fig_hist = plt.figure(figsize=(24, 10))
+        mean_list = []
+        hwhm_list = []
+        # Draw histograms
+        for ax_i, group in enumerate(data_grouped.groups):
+            # Draw histogram
+            ax = fig_hist.add_subplot(n_ax_sq, n_ax_sq, ax_i+1)
+            div = group['E_M']/group['E_T']
+            group_hist = histogram(group['E_M']/group['E_T'],'scott')
+            if group_hist[0].size <= 3:
+                group_hist = histogram(group['E_M'] / group['E_T'], 3)
+            plt.hist(group['E_M']/group['E_T'], group_hist[1])
+            energy = (energy_bins[ax_i] * u.LogUnit(u.TeV)).physical
+            ax.set_title("{0:.4g}".format(energy))
+            ax.set_xlabel(r"$E/E_{true}$")
+
+            # Fit to histogram
+            y = group_hist[0]
+            x = (group_hist[1][1:] + group_hist[1][:-1]) / 2
+            g_init = models.Gaussian1D(amplitude=np.max(y), mean=np.mean(div),
+                                       stddev=np.std(div))
+            fit_g = fitting.LevMarLSQFitter()
+            g = fit_g(g_init, x, y)
+            x_arr = np.linspace(ax.get_xlim()[0], ax.get_xlim()[1], 200)
+            ax.plot(x_arr, g(x_arr), linewidth=2)
+
+            mean_list.append(g.mean)
+            hwhm_list.append(sqrt(2 * logarithm(2)) * g.stddev)
+        fig_hist.tight_layout()
+        fig_hist.savefig(os.path.join(output_directory,"hist_{}.pdf".format(input_file.filename)), format='pdf')
+
+        # Draw bias
+        ax = fig_bias.add_subplot(1, 1, 1)
+        ax.plot(energy_bins, mean_list, label=input_file.filename)
+        ax.set_ylim([0, 2])
+        ax.set_title("Energy Bias")
+        ax.set_xlabel(r"$log_{10}(E/TeV)$")
+        ax.set_ylabel(r"$<E/E_{true}>$")
+        ax.legend(loc=2)
+        fig_bias.savefig(os.path.join(output_directory,"bias.pdf"), format='pdf')
+
+        # Draw res
+        ax = fig_res.add_subplot(1, 1, 1)
+        ax.plot(energy_bins, hwhm_list, label=input_file.filename)
+        ax.set_ylim([0, 1])
+        ax.set_title("Energy Resoltion")
+        ax.set_xlabel(r"$log_{10}(E/TeV)$")
+        ax.set_ylabel(r"$E_{res, 68\%}$")
+        ax.legend(loc=2)
+        fig_res.savefig(os.path.join(output_directory,"res.pdf"), format='pdf')
+
+
+if __name__ == '__main__':
+    main()
