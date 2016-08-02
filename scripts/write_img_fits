@@ -15,6 +15,8 @@ import numpy as np
 from tqdm import tqdm
 import os
 
+from ctapipe.calib.camera.calibrators import calibration_arguments
+
 
 def main():
     parser = argparse.ArgumentParser(description='Create a gif of an event')
@@ -22,11 +24,6 @@ def main():
                         required=True, help='path to the input file')
     parser.add_argument('-o', '--output', dest='output_path', action='store',
                         required=True, help='path of the output fits file')
-    parser.add_argument('-S', '--scheme', dest='scheme', action='store',
-                        default=0,
-                        help='which scheme should be used to extract the '
-                             'charge e.g.:'
-                             '\n - 0 = true charge')
 
     logger_detail = parser.add_mutually_exclusive_group()
     logger_detail.add_argument('-q', '--quiet', dest='quiet',
@@ -54,20 +51,28 @@ def main():
     input_file = InputFile(args.input_path)
     source = input_file.read()
 
-    table = Table(names=('event_index', 'event_id', 'telescope', 'energy', 'img'),
-              dtype=('i4', 'i4', 'i4', 'f8', '2048f8'))
+    table = Table(names=('event_index', 'event_id', 'telescope', 'energy',
+                         'altitude', 'azimuth', 'core_x', 'core_y',
+                         'height_first_interaction', 'img'),
+                  dtype=('i4', 'i4', 'i4', 'f8', 'f8', 'f8', 'f8', 'f8', 'f8',
+                         '2048f8'))
 
     with tqdm(total=1, desc="Extracting events from file") as pbar:
         for event in source:
             event_index = event.count
             event_id = event.dl0.event_id
             energy = event.mc.energy
-
-            if event_index > 10: break
+            altitude = event.mc.alt
+            azimuth = event.mc.az
+            core_x = event.mc.core_x
+            core_y = event.mc.core_y
+            height_first_interaction = event.mc.h_first_int
 
             for tel in event.dl0.tel:
                 img = event.mc.tel[tel].photo_electrons
-                table.add_row((event_index, event_id, tel, energy, img))
+                table.add_row((event_index, event_id, tel, energy, altitude,
+                               azimuth, core_x, core_y,
+                               height_first_interaction, img))
                 pbar.update(1)
 
     if not os.path.exists(os.path.dirname(args.output_path)):
@@ -75,6 +80,7 @@ def main():
             os.path.dirname(args.output_path)))
         os.makedirs(os.path.dirname(args.output_path))
     if os.path.exists(args.output_path):
+        log.info("[output] Replacing file")
         os.remove(args.output_path)
     table.write(args.output_path)
     log.info("[output] {}".format(args.output_path))
