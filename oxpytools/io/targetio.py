@@ -90,8 +90,9 @@ def targetio_event_source(url, max_events=None):
     tel_id = 0
 
     for event_index in range(n_events):
-        if counter > max_events:
-            break
+        if max_events is not None:
+            if counter > max_events:
+                break
 
         container.dl0.run_id = 0
         container.dl0.event_id = event_index
