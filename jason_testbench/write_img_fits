@@ -2,16 +2,10 @@
 
 from astropy.utils.compat import argparse
 from astropy import log
-from astropy.io import fits
-from astropy.table import Table, Column
+from astropy.table import Table
 
-from oxpytools.io.files import InputFile
-from oxpytools.plotting.event import EventPlotter
+from ctapipe.io.files import InputFile
 
-from matplotlib import pyplot as plt
-from matplotlib import animation
-
-import numpy as np
 from tqdm import tqdm
 import os
 

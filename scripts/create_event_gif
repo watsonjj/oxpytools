@@ -3,8 +3,8 @@
 from astropy.utils.compat import argparse
 from astropy import log
 
-from oxpytools.io.files import InputFile
-from oxpytools.plotting.event import EventPlotter
+from ctapipe.io.files import InputFile
+from ctapipe.plotting.camera import CameraPlotter
 
 from matplotlib import pyplot as plt
 from matplotlib import animation
@@ -94,7 +94,7 @@ def main():
     ax1 = fig.add_subplot(2, 2, 3)
     ax2 = fig.add_subplot(1, 2, 2)
 
-    plotter = EventPlotter(event)
+    plotter = CameraPlotter(event)
     waveform0 = plotter.draw_waveform(data[args.pixels[0], :], ax0)
     ax0.set_title("Pixel: {}".format(args.pixels[0]))
     line0 = plotter.draw_waveform_positionline(0, ax0)

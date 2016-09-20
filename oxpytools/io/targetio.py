@@ -60,7 +60,7 @@ def get_targetio_event(reader, event_index):
     return event
 
 
-def targetio_event_source(url):
+def targetio_event_source(url, max_events=None):
     """A generator that streams data from a GCT target file
 
     Parameters
@@ -90,6 +90,8 @@ def targetio_event_source(url):
     tel_id = 0
 
     for event_index in range(n_events):
+        if counter > max_events:
+            break
 
         container.dl0.run_id = 0
         container.dl0.event_id = event_index
