@@ -1,3 +1,6 @@
 [submodule "astropy_helpers"]
 	path = astropy_helpers
 	url = https://github.com/astropy/astropy-helpers.git
+[submodule "oxpytools-extra"]
+	path = oxpytools-extra
+	url = https://github.com/watsonjj/oxpytools-extra.git
