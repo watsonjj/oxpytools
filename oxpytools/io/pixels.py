@@ -4107,6 +4107,7 @@ chec_pixel_pos = [
     (0.10286, -0.15714),  # 2047
 ]
 
+chec_pixel_id_np = np.array(chec_pixel_id).reshape(32, 4, 16)
 
 def get_pixel_id(module, asic, channel):
     """
@@ -4123,9 +4124,7 @@ def get_pixel_id(module, asic, channel):
     pixel_id : int
 
     """
-
-    array = np.array(chec_pixel_id).reshape(32, 4, 16)
-    pixel_id = array[module][asic][channel]
+    pixel_id = chec_pixel_id_np[module][asic][channel]
 
     return pixel_id
 
