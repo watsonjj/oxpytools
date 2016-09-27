@@ -10,7 +10,7 @@ import tkinter as Tk
 import itertools
 from ctapipe.io import CameraGeometry
 from ctapipe.visualization import CameraDisplay
-from ctapipe.io.files import InputFile
+from targetpipe.io.files import CHECInputFile as InputFile
 
 from astropy import units as u
 import numpy as np

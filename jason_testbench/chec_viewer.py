@@ -1,5 +1,5 @@
 from ctapipe.io import CameraGeometry
-from ctapipe.io.files import InputFile
+from targetpipe.io.files import CHECInputFile as InputFile
 from ctapipe.visualization import CameraDisplay
 
 from matplotlib import pyplot as plt

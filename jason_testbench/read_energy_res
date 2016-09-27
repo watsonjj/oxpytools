@@ -10,7 +10,7 @@ from astropy.modeling import models, fitting
 
 from matplotlib import pyplot as plt
 
-from oxpytools.io.files import InputFile
+from targetpipe.io.files import CHECInputFile as InputFile
 
 import os
 

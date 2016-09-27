@@ -1,9 +1,13 @@
 #!python
+"""
+Create a animated gif of an event, similar to those produced in libCHEC for
+the inauguration press release.
+"""
 
 from astropy.utils.compat import argparse
 from astropy import log
 
-from ctapipe.io.files import InputFile
+from targetpipe.io.files import CHECInputFile as InputFile
 from ctapipe.plotting.camera import CameraPlotter
 
 from matplotlib import pyplot as plt

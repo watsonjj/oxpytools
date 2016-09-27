@@ -1,4 +1,4 @@
-from ..pixels import get_pixel_id, get_pixel_pos, get_all_pixel_pos
+from targetpipe.io.pixels import get_pixel_id, get_pixel_pos, get_all_pixel_pos
 
 
 def test_get_pixel_id():

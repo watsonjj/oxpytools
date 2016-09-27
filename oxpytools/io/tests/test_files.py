@@ -1,4 +1,4 @@
-from ..files import CHECInputFile
+from targetpipe.io.files import CHECInputFile
 from ...utils.datasets import get_oxpytools_extra_path
 from pathlib import Path
 

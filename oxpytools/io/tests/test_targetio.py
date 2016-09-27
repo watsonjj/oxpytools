@@ -1,4 +1,4 @@
-from ..targetio import targetio_event_source
+from targetpipe.io.targetio import targetio_event_source
 from ...utils.datasets import get_oxpytools_extra_path
 
 

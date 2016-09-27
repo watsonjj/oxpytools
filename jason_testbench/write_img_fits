@@ -4,7 +4,7 @@ from astropy.utils.compat import argparse
 from astropy import log
 from astropy.table import Table
 
-from ctapipe.io.files import InputFile
+from targetpipe.io.files import CHECInputFile as InputFile
 
 from tqdm import tqdm
 import os
