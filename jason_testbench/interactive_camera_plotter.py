@@ -4,8 +4,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.widgets import Slider
 from matplotlib import pyplot as plt
 
-
-import tkinter as Tk
+import tkinter as tk
 
 import itertools
 from ctapipe.io import CameraGeometry
@@ -19,115 +18,156 @@ import copy
 from astropy import log
 
 
-
 class EventViewer(CameraDisplay):
-    def __init__(self, event, camera_axis):
-        self.event = event
-        self.event_tels = list(event.dl0.tels_with_data)
+    def __init__(self, waveform_data, geometry,
+                 camera_axis, waveform_axis_list):
+        self.__waveform_data = None
+        self.__waveform_axis_list = None
+
         self.camera_axis = camera_axis
         self.waveform_axis_list = []
         self.waveform_title_list = []
         self.waveforms = []
         self.pixel_switch_num = 0
 
-        self.telid = 0
-        self.geom = CameraGeometry.guess(*event.meta.pixel_pos[self.telid],
-                                         event.meta.optical_foclen[self.telid])
-        self.data = event.dl0.tel[self.telid].adc_samples[0]
-
-        CameraDisplay.__init__(self, self.geom, ax=camera_axis)
-
         self.colors = itertools.cycle(['r', 'b', 'c', 'm', 'y', 'k', 'w', 'g'])
         self.current_color = 'r'
 
         self.active_pixels = []
+        self.active_pixel_patches = []
         self.active_pixel_labels = []
 
-    def add_pixel_annotation(self):
-        self.active_pixels.append(copy.copy(self._active_pixel))
-        self.active_pixels[-1].set_facecolor(self.current_color)
-        self.camera_axis.add_patch(self.active_pixels[-1])
+        CameraDisplay.__init__(self, geometry, ax=camera_axis)
+        self._active_pixel.set_linewidth(1.5)
+
+        self.geom = geometry
+        self.waveform_data = waveform_data
+        self.waveform_axis_list = waveform_axis_list
+
+        geometry_text = "Geometry = {}".format(geometry.cam_id)
+        self.camera_axis.text(0.01, 0.99, geometry_text,
+                              horizontalalignment='left',
+                              verticalalignment='top',
+                              transform=self.camera_axis.transAxes)
+
+    @property
+    def waveform_data(self):
+        return self.__waveform_data
+
+    @waveform_data.setter
+    def waveform_data(self, ndarray):
+        self.__waveform_data = ndarray
+        for waveform_index in range(len(self.waveforms)):
+            pixid = self.active_pixels[waveform_index]
+            self.update_waveform(waveform_index, pixid)
+
+    @property
+    def waveform_axis_list(self):
+        return self.__waveform_axis_list
+
+    @waveform_axis_list.setter
+    def waveform_axis_list(self, wlist):
+        self.__waveform_axis_list = wlist
+        for ax in wlist:
+            self.current_color = next(self.colors)
+            data = self.waveform_data[0, :]
+            waveform, = ax.plot(data)
+            waveform.set_color(self.current_color)
+            ax.set_xlim(0, data.size - 1)
+            ax.set_xlabel("Time (ns)")
+            ax.set_ylabel("Amplitude (ADC)")
+            title = ax.set_title("Waveform (pixel: {})".format(0))
+            title.set_color(self.current_color)
+
+            self.waveform_title_list.append(title)
+            self.waveforms.append(waveform)
+
+            self._add_pixel_annotation()
+
+    def update_waveform(self, waveform_index, new_pix_id):
+        waveform_axis = self.waveform_axis_list[waveform_index]
+        waveform_title = self.waveform_title_list[waveform_index]
+        waveform = self.waveforms[waveform_index]
+        data = self.waveform_data[new_pix_id, :]
+        waveform.set_xdata(np.arange(data.size))
+        waveform.set_ydata(data)
+        waveform_axis.relim()  # make sure all the data fits
+        waveform_axis.autoscale()
+        waveform_axis.set_xlim(0, data.size - 1)
+        waveform_title.set_text("Waveform (pixel: {})".format(new_pix_id))
+        plt.draw()
+
+    def _add_pixel_annotation(self):
+        self.active_pixels.append(0)
+        self.active_pixel_patches.append(copy.copy(self._active_pixel))
+        self.active_pixel_patches[-1].set_facecolor('none')
+        self.active_pixel_patches[-1].set_edgecolor(self.current_color)
+        self.camera_axis.add_patch(self.active_pixel_patches[-1])
         new_pixel_label = self.camera_axis.text(0, 0, 0)
         new_pixel_label.update_from(self._active_pixel_label)
         self.active_pixel_labels.append(new_pixel_label)
 
-    def add_waveform_display(self, ax=None):
-        self.current_color = next(self.colors)
-
-        axes = ax if ax is not None else plt.gca()
-        waveform, = axes.plot(self.data[0, :])
-        waveform.set_color(self.current_color)
-        axes.set_xlabel("Time (ns)")
-        axes.set_ylabel("Amplitude (ADC)")
-        title = axes.set_title("Waveform (pixel: {})".format(0))
-        title.set_color(self.current_color)
-
-        self.waveform_axis_list.append(axes)
-        self.waveform_title_list.append(title)
-        self.waveforms.append(waveform)
-
-        self.add_pixel_annotation()
-
-        return waveform
-
-    def switch_waveform(self, pix_id):
-        n = len(self.waveforms)
-        waveform_axis = self.waveform_axis_list[self.pixel_switch_num % n]
-        waveform_title = self.waveform_title_list[self.pixel_switch_num % n]
-        waveform = self.waveforms[self.pixel_switch_num % len(self.waveforms)]
-        waveform.set_ydata(self.data[pix_id, :])
-        waveform_axis.relim()  # make sure all the data fits
-        waveform_axis.autoscale()
-        waveform_title.set_text("Waveform (pixel: {})".format(pix_id))
-        plt.draw()
-
     def _on_pick(self, event):
         """ handler for when a pixel is clicked """
+        pixid = event.ind[-1]
         n = len(self.waveforms)
-        i = self.pixel_switch_num % n if n > 0 else 0
-        if not self.active_pixels:
-            self.add_pixel_annotation()
-        pixel = self.active_pixels[i]
-        pixel_label = self.active_pixel_labels[i]
+        pixel_index = self.pixel_switch_num % n if n > 0 else 0
+        if not self.active_pixel_patches:
+            self._add_pixel_annotation()
+        self.set_active_pixel(pixel_index, pixid)
 
-        pix_id = event.ind[-1]
+    def set_active_pixel(self, pixel_index, pix_id):
+        log.info('[plot] Switching active pixel (pixel={})'.format(pix_id))
+        pixel_patch = self.active_pixel_patches[pixel_index]
+        pixel_label = self.active_pixel_labels[pixel_index]
+
         xx, yy, aa = u.Quantity(self.geom.pix_x[pix_id]).value, \
                      u.Quantity(self.geom.pix_y[pix_id]).value, \
                      u.Quantity(np.array(self.geom.pix_area)[pix_id])
+        rr = sqrt(aa)
         if self.geom.pix_type.startswith("hex"):
-            pixel.xy = (xx, yy)
+            pixel_patch.xy = (xx, yy)
         else:
-            rr = sqrt(aa)
-            pixel.xy = (xx - rr / 2., yy - rr / 2.)
-        pixel.set_visible(True)
+            pixel_patch.xy = (xx - rr / 2., yy - rr / 2.)
+        pixel_patch.set_visible(True)
         pixel_label.set_x(xx)
-        pixel_label.set_y(yy)
+        pixel_label.set_y(yy + rr)
         pixel_label.set_text("{:003d}".format(pix_id))
         pixel_label.set_visible(True)
-        self.on_pixel_clicked(pix_id)  # call user-function
+
+        if self.waveforms:
+            n = len(self.waveforms)
+            waveform_index = self.pixel_switch_num % n
+            self.active_pixels[waveform_index] = pix_id
+            self.update_waveform(waveform_index, pix_id)
+
         self.pixel_switch_num += 1
         self.update()
 
-    def on_pixel_clicked(self, pix_id):
-        if self.waveforms:
-            self.switch_waveform(pix_id)
-
 
 class InteractiveSourcePlotter:
-    def __init__(self, input_file, canvas, camera_ax, waveform_ax_list):
+    def __init__(self, input_file, fig, camera_ax, waveform_ax_list):
         self.__input_file = None
+        self.__event_id_list = None
         self.__event = None
         self.__event_index = None
         self.__event_id = None
         self.__telid = None
+        self.__geom = None
+        self.__waveform_data = None
+        self.__camera_image = None
+        self.__tels_with_data = None
+        self.__current_time = None
 
         # self.event = None
         # self.event_index = None
         # self.event_id = None
         # self.telid = None
 
-        self.tels_with_data = None
-        self.data = None
+        self.waveform_data_type = 'adc'
+        self.camera_image_type = 'adc'
+        # self.waveform_data_type = 'cells'
+        # self.camera_image_type = 'cells'
         self.data_min = None
         self.data_max = None
         self.camera = None
@@ -137,7 +177,17 @@ class InteractiveSourcePlotter:
         self.colorbar_added = False
         self.colorbar = None
 
-        self.canvas = canvas
+        self._root = tk.Tk()
+        self._root.wm_title("Embedding in TK")
+        self._canvas = FigureCanvasTkAgg(fig, master=self._root)
+        self._canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+        self.tk_activated = False
+        self.s_event_index = None
+        self.s_event_id = None
+        self.s_telid = None
+
+        # self.fig = fig
         self.camera_ax = camera_ax
         self.waveform_ax_list = waveform_ax_list
         self.input_file = input_file
@@ -149,8 +199,21 @@ class InteractiveSourcePlotter:
     @input_file.setter
     def input_file(self, file):
         self.__input_file = file
-        self.geom_dict = None
+        self.geom_dict = {}
+        self.event_id_list = file.get_list_of_event_ids()
         self.event = file.get_event(0)
+
+    @property
+    def event_id_list(self):
+        return self.__event_id_list
+
+    @event_id_list.setter
+    def event_id_list(self, elist):
+        self.__event_id_list = elist
+        if self.s_event_index:
+            self.s_event_index.config(to=len(elist))
+        if self.s_event_id:
+            self.s_event_index.config(values=tuple(elist))
 
     @property
     def event(self):
@@ -158,12 +221,17 @@ class InteractiveSourcePlotter:
 
     @event.setter
     def event(self, event_container):
-        print("event")
         self.__event = event_container
         self.__event_index = event_container.count
         self.__event_id = event_container.dl0.event_id
+        log.info('[plot] Switching event (index={}, id={})'
+                 .format(self.event_index, self.event_id))
         self.tels_with_data = list(event_container.dl0.tels_with_data)
-        self.telid = self.tels_with_data[0]
+        if self.telid not in self.tels_with_data:
+            self.telid = self.tels_with_data[0]
+        else:
+            # Reload all elements (using same telescope)
+            self.telid = self.__telid
 
     @property
     def event_index(self):
@@ -171,7 +239,6 @@ class InteractiveSourcePlotter:
 
     @event_index.setter
     def event_index(self, val):
-        print("event_index")
         self.event = self.input_file.get_event(val)
 
     @property
@@ -180,8 +247,17 @@ class InteractiveSourcePlotter:
 
     @event_id.setter
     def event_id(self, val):
-        print("event_id")
         self.event = self.input_file.get_event(val, True)
+
+    @property
+    def tels_with_data(self):
+        return self.__tels_with_data
+
+    @tels_with_data.setter
+    def tels_with_data(self, tlist):
+        self.__tels_with_data = tlist
+        if self.s_telid:
+            self.s_telid.config(values=tuple(tlist))
 
     @property
     def telid(self):
@@ -189,76 +265,238 @@ class InteractiveSourcePlotter:
 
     @telid.setter
     def telid(self, val):
+
+        # If tel id has changed delete camera
+        if not self.__telid == val:
+            self.camera_ax.cla()
+            for ax in self.waveform_ax_list:
+                ax.cla()
+            self.camera = None
         self.__telid = val
 
-        self.camera_ax.cla()
-        for ax in self.waveform_ax_list:
-            ax.cla()
+        log.info('[plot] Switching telescope (telid={})'.format(self.telid))
 
-        self.data = self.event.dl0.tel[val].adc_samples[0]
-        self.data_min = np.min(self.data[np.nonzero(self.data)])
-        self.data_max = np.max(self.data)
+        self.set_waveform_data()
 
-        self.camera = EventViewer(self.event, self.camera_ax)
-        for ax in self.waveform_ax_list:
-            self.camera.add_waveform_display(ax)
-        self.camera.image = self.data[:, 0]
+        if not self.camera:
+            pixel_pos = self.event.meta.pixel_pos[val]
+            optical_foclen = self.event.meta.optical_foclen[val]
+            if val not in self.geom_dict:
+                self.geom = CameraGeometry.guess(*pixel_pos, optical_foclen)
+                self.geom_dict[val] = self.geom
+            else:
+                self.geom = self.geom_dict[val]
+
+        self.current_time = 0
+
+        self.setup_matplotlib_widgets()
+
+        self._canvas.show()
+        if self.tk_activated:
+            self.update_tk_elements()
+
+    @property
+    def geom(self):
+        return self.__geom
+
+    @geom.setter
+    def geom(self, geometry):
+        self.__geom = geometry
+
+        self.camera = EventViewer(self.waveform_data, self.geom,
+                                  self.camera_ax, self.waveform_ax_list)
         self.camera.cmap = plt.cm.viridis
-        self.camera.set_limits_minmax(self.data_min * 1.05,
-                                      self.data_max * 0.95)
         self.camera.enable_pixel_picker()
 
-        print('colorbar', self.colorbar)
         if not self.colorbar:
-            self.camera.add_colorbar(ax=self.camera_ax, label="Amplitude (ADC)")
+            self.camera.add_colorbar(ax=self.camera_ax,
+                                     label="Amplitude (ADC)")
             self.colorbar = self.camera.colorbar
         else:
             self.camera.colorbar = self.colorbar
             self.camera.update(True)
 
-        if not self.ts_list:
-            self.ts_list = self.add_time_sliders()
+    @property
+    def waveform_data(self):
+        return self.__waveform_data
 
-        self.canvas.show()
+    @waveform_data.setter
+    def waveform_data(self, ndarray):
+        self.__waveform_data = ndarray
+        if self.camera:
+            self.camera.waveform_data = ndarray
 
-    def add_time_sliders(self):
-        ts_list = []
-        for ax in self.waveform_ax_list:
-            time_slider_ax = plt.axes(ax.get_position())
-            time_slider_ax.patch.set_alpha(0)
-            time_slider = Slider(time_slider_ax, '', *ax.get_xlim(), valfmt='%0.0f')
-            time_slider.poly.set_color('r')
-            time_slider.poly.set_facecolor('none')
-            time_slider.vline.set_visible(False)
-            ts_list.append(time_slider)
+    @property
+    def camera_image(self):
+        return self.__camera_image
 
-        def update_time_slider(val):
-            max_time = np.size(self.data[0])-1
-            if val > max_time:
-                val = max_time
-            time = int(val)
-            self.camera.image = self.data[:, time]
-            for ts in ts_list:
+    @camera_image.setter
+    def camera_image(self, array):
+        self.__camera_image = array
+        if self.camera:
+            self.camera.image = array
+            self.camera.set_limits_minmax(self.data_min, self.data_max)
+
+    @property
+    def current_time(self):
+        return self.__current_time
+
+    @current_time.setter
+    def current_time(self, val):
+        self.__current_time = val
+        log.info('[plot] Switching current time (time={:.2f})'
+                 .format(self.current_time))
+        if self.ts_list:
+            for ts in self.ts_list:
                 if not val == ts.val:
-                    ts.set_val(val)
-            plt.draw()
+                    xy = ts.poly.xy
+                    xy[2] = val, 1
+                    xy[3] = val, 0
+                    ts.poly.xy = xy
+                    ts.valtext.set_text(ts.valfmt % val)
+                    if ts.drawon:
+                        ts.ax.figure.canvas.draw_idle()
+                    ts.val = val
+        self.set_camera_image()
 
-        for ts in ts_list:
-            ts.on_changed(update_time_slider)
+    def set_waveform_data(self):
+        if self.waveform_data_type == 'adc':
+            array = self.event.dl0.tel[self.telid].adc_samples[0]
+            self.data_min = np.min(array[np.nonzero(array)])
+            self.data_max = np.max(array)
+            self.waveform_data = array
+        elif self.waveform_data_type == 'cells':
+            array = self.event.dl0.tel[self.telid].cells
+            self.waveform_data = array
 
-        return ts_list
+    def set_camera_image(self):
+        if self.camera_image_type == 'adc':
+            self.camera_image = self.waveform_data[:, int(self.current_time)]
+        elif self.waveform_data_type == 'cells':
+            array = self.waveform_data[:, int(self.current_time)]
+            self.data_min = np.min(array[np.nonzero(array)])-5
+            self.data_max = np.max(array)
+            self.camera_image = array
+
+    def setup_matplotlib_widgets(self):
+        if not self.ts_list:
+            log.info('[plot] Adding matplotlib widgets')
+            self.ts_list = []
+            for ax in self.waveform_ax_list:
+                time_slider_ax = plt.axes(ax.get_position())
+                time_slider_ax.patch.set_alpha(0)
+                time_slider = Slider(time_slider_ax, '', *ax.get_xlim(),
+                                     valfmt='%0.0f')
+                time_slider.poly.set_color('r')
+                time_slider.poly.set_facecolor('none')
+                time_slider.vline.set_visible(False)
+                self.ts_list.append(time_slider)
+
+            def update_time_slider(val):
+                self.current_time = val
+
+            for ts in self.ts_list:
+                ts.on_changed(update_time_slider)
+        else:
+            # Update lims when tel is changed
+            for ts, ax in zip(self.ts_list, self.waveform_ax_list):
+                ts.valmin = ax.get_xlim()[0]
+                ts.valmax = ax.get_xlim()[1]
+                ts.ax.set_xlim(*ax.get_xlim())
+
+    # def add_check_buttons(self):
+
+    def add_tk_elements(self):
+        log.info('[plot] Adding tkinter elements')
+        self.tk_activated = True
+        self.add_tk_event_index_picker()
+        self.add_tk_event_id_picker()
+        self.add_tk_telid_picker()
+        self.add_tk_print_values()
+
+        self.add_quit()
+
+    def add_tk_event_index_picker(self):
+        l_event = tk.Label(self._root, text="Event_index")
+        l_event.pack(side=tk.LEFT)
+        self.s_event_index = tk.Spinbox(self._root, width=6, from_=0,
+                                        to=len(self.event_id_list) - 1)
+        self.s_event_index.pack(side=tk.LEFT)
+
+        def callback():
+            val = round(float(self.s_event_index.get()))
+            all_vals = np.arange(len(self.event_id_list))
+            event_req = all_vals[np.abs(all_vals - val).argmin()]
+            self.event_index = event_req
+
+        b = tk.Button(self._root, text="get", width=3, command=callback)
+        b.pack(side=tk.LEFT)
+
+    def add_tk_event_id_picker(self):
+        l_event = tk.Label(self._root, text="Event_id")
+        l_event.pack(side=tk.LEFT)
+        self.s_event_id = tk.Spinbox(self._root, width=6,
+                                     values=tuple(self.event_id_list))
+        self.s_event_id.pack(side=tk.LEFT)
+
+        def callback():
+            val = round(float(self.s_event_id.get()))
+            all_vals = np.array(self.event_id_list)
+            event_req = all_vals[np.abs(all_vals - val).argmin()]
+            self.event_id = event_req
+
+        b = tk.Button(self._root, text="get", width=3, command=callback)
+        b.pack(side=tk.LEFT)
+
+    def add_tk_telid_picker(self):
+        l_event = tk.Label(self._root, text="telid")
+        l_event.pack(side=tk.LEFT)
+        self.s_telid = tk.Spinbox(self._root, width=6,
+                                  values=tuple(self.tels_with_data))
+        self.s_telid.pack(side=tk.LEFT)
+
+        def callback():
+            val = round(float(self.s_telid.get()))
+            all_vals = np.array(self.tels_with_data)
+            tel_req = all_vals[np.abs(all_vals - val).argmin()]
+            self.telid = tel_req
+
+        b = tk.Button(self._root, text="get", width=3, command=callback)
+        b.pack(side=tk.LEFT)
+
+    def add_tk_print_values(self):
+        def callback():
+            for pix in self.camera.active_pixels:
+                val = self.waveform_data[pix, int(self.current_time)]
+                log.info('[plot] Event_index={}, Event_id={}, telid={}, '
+                         'Pixel={}, Time={:.2f}, Value={}'
+                         .format(self.event_index, self.event_id, self.telid,
+                                 pix, self.current_time, val))
+
+        b = tk.Button(self._root, text="Print", width=5, command=callback)
+        b.pack(side=tk.LEFT)
+
+    def add_quit(self):
+        import sys
+        button = tk.Button(master=self._root, text='Quit', command=sys.exit)
+        button.pack(side=tk.BOTTOM)
+
+    def update_tk_elements(self):
+        self.s_event_index.delete(0, "end")
+        self.s_event_index.insert(0, self.event_index)
+        self.s_event_id.delete(0, "end")
+        self.s_event_id.insert(0, self.event_id)
+        self.s_telid.delete(0, "end")
+        self.s_telid.insert(0, self.telid)
 
 
 def main():
     fp = "/Users/Jason/Software/outputs/libCHEC/sky/cameradata_run1594.fits"
     reader = 'targetio'
-    # fp = "/Users/Jason/Software/outputs/sim_telarray/simtel_run4_gcts_hnsb.gz"
+    # fp = "/Users/Jason/Software/ctapipe/ctapipe-extra/datasets/gamma_test.simtel.gz"
     # reader = 'hessio'
-    telid = 0
-    event_index = 9
 
     input_file = InputFile(fp, reader)
-    event_id_list = input_file.get_list_of_event_ids()
 
     fig = plt.figure(figsize=(15, 7))
     ax0 = fig.add_subplot(1, 2, 1)
@@ -266,62 +504,10 @@ def main():
     ax2 = fig.add_subplot(2, 2, 4)
     fig.subplots_adjust(hspace=.5)
 
-    root = Tk.Tk()
-    root.wm_title("Embedding in TK")
+    plot = InteractiveSourcePlotter(input_file, fig, ax0, [ax1, ax2])
 
-    canvas = FigureCanvasTkAgg(fig, master=root)
-    canvas._tkcanvas.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
-
-    # event = input_file.get_event(event_index)
-
-    plot = InteractiveSourcePlotter(input_file, canvas, ax0, [ax1, ax2])
-
-
-    # data = event.dl0.tel[telid].adc_samples[0]
-    # data_min = np.min(data[np.nonzero(data)])
-    # data_max = np.max(data)
-    #
-    # camera = EventViewer(event, ax0)
-    # camera.add_waveform_display(ax1)
-    # camera.add_waveform_display(ax2)
-    # camera.image = data[:, 0]
-    # camera.cmap = plt.cm.viridis
-    # camera.set_limits_minmax(data_min*1.05, data_max*0.95)
-    # camera.add_colorbar(ax=ax0, label="Amplitude (ADC)")
-    # camera.enable_pixel_picker()
-    #
-    # ts1, ts2 = add_time_sliders(data, camera, ax1, ax2)
-    #
-    # canvas.show()
-    # plt.show()
-
-
-    # canvas.get_tk_widget().pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
-
-    # Event picker
-    l_event = Tk.Label(root, text="Event")
-    l_event.pack(side=Tk.LEFT)
-    s_event = Tk.Spinbox(root, from_=0, to=len(event_id_list)-1)
-    s_event.pack(side=Tk.LEFT)
-
-    def callback():
-        val = round(float(s_event.get()))
-        all = np.arange(len(event_id_list))
-        event_req = all[np.abs(all-val).argmin()]
-        s_event.delete(0, "end")
-        s_event.insert(0, event_req)
-        plot.event_index = event_req
-
-    b = Tk.Button(root, text="get", width=10, command=callback)
-    b.pack(side=Tk.LEFT)
-
-
-    import sys
-    button = Tk.Button(master=root, text='Quit', command=sys.exit)
-    button.pack(side=Tk.BOTTOM)
-
-    Tk.mainloop()
-
+    plot.add_tk_elements()
+    tk.mainloop()
 
 if __name__ == '__main__':
     main()
