@@ -1,4 +1,8 @@
 import matplotlib
+from ctapipe.calib.camera.calibrators import calibration_parameters, \
+    calibrate_event
+from ctapipe.calib.camera.integrators import integrator_dict
+
 matplotlib.use('TkAgg')
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.widgets import Slider
@@ -20,13 +24,15 @@ from astropy import log
 
 class EventViewer(CameraDisplay):
     def __init__(self, waveform_data, geometry,
-                 camera_axis, waveform_axis_list):
+                 camera_axis, waveform_axis_list, waveform_axis_ylabel):
         self.__waveform_data = None
         self.__waveform_axis_list = None
+        self.__integration_window = None
 
         self.camera_axis = camera_axis
         self.waveform_axis_list = []
         self.waveform_title_list = []
+        self.waveform_window_list = []
         self.waveforms = []
         self.pixel_switch_num = 0
 
@@ -37,10 +43,15 @@ class EventViewer(CameraDisplay):
         self.active_pixel_patches = []
         self.active_pixel_labels = []
 
+        self.window_start = None
+        self.window_end = None
+
+
         CameraDisplay.__init__(self, geometry, ax=camera_axis)
         self._active_pixel.set_linewidth(1.5)
 
         self.geom = geometry
+        self.waveform_yaxis_label = waveform_axis_ylabel
         self.waveform_data = waveform_data
         self.waveform_axis_list = waveform_axis_list
 
@@ -75,18 +86,36 @@ class EventViewer(CameraDisplay):
             waveform.set_color(self.current_color)
             ax.set_xlim(0, data.size - 1)
             ax.set_xlabel("Time (ns)")
-            ax.set_ylabel("Amplitude (ADC)")
+            ax.set_ylabel(self.waveform_yaxis_label)
             title = ax.set_title("Waveform (pixel: {})".format(0))
             title.set_color(self.current_color)
 
+            # Integration window lines
+            line1, = ax.plot([0, 0], ax.get_ylim(), color='b', visible=False)
+            line2, = ax.plot([0, 0], ax.get_ylim(), color='b', visible=False)
+
             self.waveform_title_list.append(title)
             self.waveforms.append(waveform)
+            self.waveform_window_list.append((line1, line2))
 
             self._add_pixel_annotation()
+
+    @property
+    def integration_window(self):
+        return self.__integration_window
+
+    @integration_window.setter
+    def integration_window(self, ndarray):
+        self.__integration_window = ndarray
+        length = np.sum(ndarray, axis=1)
+        self.window_start = np.argmax(ndarray, axis=1)
+        self.window_end = self.window_start + length - 1
+        self.update_window_position()
 
     def update_waveform(self, waveform_index, new_pix_id):
         waveform_axis = self.waveform_axis_list[waveform_index]
         waveform_title = self.waveform_title_list[waveform_index]
+        line = self.waveform_window_list[waveform_index]
         waveform = self.waveforms[waveform_index]
         data = self.waveform_data[new_pix_id, :]
         waveform.set_xdata(np.arange(data.size))
@@ -94,8 +123,28 @@ class EventViewer(CameraDisplay):
         waveform_axis.relim()  # make sure all the data fits
         waveform_axis.autoscale()
         waveform_axis.set_xlim(0, data.size - 1)
+        waveform_axis.set_ylabel(self.waveform_yaxis_label)
+        if self.integration_window is not None:
+            line[0].set_xdata((self.window_start[new_pix_id],
+                               self.window_start[new_pix_id]))
+            line[1].set_xdata((self.window_end[new_pix_id],
+                               self.window_end[new_pix_id]))
+            line[0].set_ydata(waveform_axis.get_ylim())
+            line[1].set_ydata(waveform_axis.get_ylim())
         waveform_title.set_text("Waveform (pixel: {})".format(new_pix_id))
-        plt.draw()
+        waveform_axis.figure.canvas.draw()
+
+    def update_window_position(self):
+        for lines, pix in zip(self.waveform_window_list, self.active_pixels):
+            lines[0].set_xdata((self.window_start[pix],
+                                self.window_start[pix]))
+            lines[1].set_xdata((self.window_end[pix],
+                                self.window_end[pix]))
+
+    def update_window_visibility(self, visible):
+        for lines, pix in zip(self.waveform_window_list, self.active_pixels):
+            lines[0].set_visible(visible)
+            lines[1].set_visible(visible)
 
     def _add_pixel_annotation(self):
         self.active_pixels.append(0)
@@ -158,20 +207,22 @@ class InteractiveSourcePlotter:
         self.__camera_image = None
         self.__tels_with_data = None
         self.__current_time = None
+        self.__calibrate = None
+        self.__waveform_view = None
+        self.__camera_view = None
 
         # self.event = None
         # self.event_index = None
         # self.event_id = None
         # self.telid = None
 
-        self.waveform_data_type = 'adc'
-        self.camera_image_type = 'adc'
-        # self.waveform_data_type = 'cells'
-        # self.camera_image_type = 'cells'
         self.data_min = None
         self.data_max = None
         self.camera = None
         self.ts_list = None
+        self.calib_params = None
+        self.waveform_views_dict = None
+        self.camera_views_dict = None
 
         self.geom_dict = None
         self.colorbar_added = False
@@ -186,6 +237,14 @@ class InteractiveSourcePlotter:
         self.s_event_index = None
         self.s_event_id = None
         self.s_telid = None
+        self.om_waveform_view = None
+        self.om_camera_view = None
+        self.calib_popout = None
+        self.wf_view_var = None
+        self.c_view_var = None
+
+        self.waveform_yaxis_label = 'Amplitude (ADC)'
+        self.camera_axis_label = 'Amplitude (ADC)'
 
         # self.fig = fig
         self.camera_ax = camera_ax
@@ -200,6 +259,8 @@ class InteractiveSourcePlotter:
     def input_file(self, file):
         self.__input_file = file
         self.geom_dict = {}
+        self.set_calibration_params()
+        self.update_views_dict()
         self.event_id_list = file.get_list_of_event_ids()
         self.event = file.get_event(0)
 
@@ -221,12 +282,16 @@ class InteractiveSourcePlotter:
 
     @event.setter
     def event(self, event_container):
-        self.__event = event_container
-        self.__event_index = event_container.count
-        self.__event_id = event_container.dl0.event_id
+        ev = event_container
         log.info('[plot] Switching event (index={}, id={})'
                  .format(self.event_index, self.event_id))
-        self.tels_with_data = list(event_container.dl0.tels_with_data)
+        if self.calibrate and self.calib_params:
+            log.info('[plot] Calibrating event')
+            ev = calibrate_event(ev, self.calib_params, self.geom_dict)
+        self.__event = ev
+        self.__event_index = ev.count
+        self.__event_id = ev.dl0.event_id
+        self.tels_with_data = list(ev.dl0.tels_with_data)
         if self.telid not in self.tels_with_data:
             self.telid = self.tels_with_data[0]
         else:
@@ -276,7 +341,7 @@ class InteractiveSourcePlotter:
 
         log.info('[plot] Switching telescope (telid={})'.format(self.telid))
 
-        self.set_waveform_data()
+        self.waveform_view = self.waveform_view
 
         if not self.camera:
             pixel_pos = self.event.meta.pixel_pos[val]
@@ -286,6 +351,13 @@ class InteractiveSourcePlotter:
                 self.geom_dict[val] = self.geom
             else:
                 self.geom = self.geom_dict[val]
+
+        if self.calibrate and self.calib_params:
+            windows = self.event.dl1.tel[val].integration_window[0]
+            self.camera.integration_window = windows
+            self.camera.update_window_visibility(True)
+        else:
+            self.camera.update_window_visibility(False)
 
         self.current_time = 0
 
@@ -304,13 +376,14 @@ class InteractiveSourcePlotter:
         self.__geom = geometry
 
         self.camera = EventViewer(self.waveform_data, self.geom,
-                                  self.camera_ax, self.waveform_ax_list)
+                                  self.camera_ax, self.waveform_ax_list,
+                                  self.waveform_yaxis_label)
         self.camera.cmap = plt.cm.viridis
         self.camera.enable_pixel_picker()
 
         if not self.colorbar:
             self.camera.add_colorbar(ax=self.camera_ax,
-                                     label="Amplitude (ADC)")
+                                     label=self.camera_axis_label)
             self.colorbar = self.camera.colorbar
         else:
             self.camera.colorbar = self.colorbar
@@ -324,6 +397,7 @@ class InteractiveSourcePlotter:
     def waveform_data(self, ndarray):
         self.__waveform_data = ndarray
         if self.camera:
+            self.camera.waveform_yaxis_label = self.waveform_yaxis_label
             self.camera.waveform_data = ndarray
 
     @property
@@ -334,6 +408,7 @@ class InteractiveSourcePlotter:
     def camera_image(self, array):
         self.__camera_image = array
         if self.camera:
+            self.camera.colorbar.set_label(self.camera_axis_label)
             self.camera.image = array
             self.camera.set_limits_minmax(self.data_min, self.data_max)
 
@@ -357,26 +432,169 @@ class InteractiveSourcePlotter:
                     if ts.drawon:
                         ts.ax.figure.canvas.draw_idle()
                     ts.val = val
-        self.set_camera_image()
+        self.camera_view = self.camera_view
 
-    def set_waveform_data(self):
-        if self.waveform_data_type == 'adc':
+    @property
+    def calibrate(self):
+        return self.__calibrate
+
+    @calibrate.setter
+    def calibrate(self, flag):
+        self.__calibrate = flag
+        # Re-set event so it can be calibrated
+        if flag:
+            log.info('[plot] Calibration activated')
+            self.event = self.event
+        else:
+            log.info('[plot] Calibration de-activated')
+        self.update_views_dict()
+
+    def set_calibration_params(self, cmdline=None):
+        if not cmdline:
+            cmdline = []
+        try:
+            params, unk = calibration_parameters(cmdline,
+                                                 self.input_file.origin)
+        except KeyError:
+            params = None
+        self.calib_params = params
+
+    @property
+    def waveform_view(self):
+        if self.__waveform_view is None:
+            return 'adc'
+        return self.__waveform_view
+
+    @waveform_view.setter
+    def waveform_view(self, view):
+        if view not in self.waveform_views_dict:
+            view = 'adc'
+            self.wf_view_var.set(view)
+        if not view == self.__waveform_view:
+            log.info('[plot] Changing waveform view ({})'.format(view))
+        self.__waveform_view = view
+        self.waveform_views_dict[view]()
+
+    @property
+    def camera_view(self):
+        if self.__camera_view is None:
+            return 'adc'
+        return self.__camera_view
+
+    @camera_view.setter
+    def camera_view(self, view):
+        if view not in self.camera_views_dict:
+            view = 'adc'
+            self.c_view_var.set(view)
+        if not view == self.__camera_view:
+            log.info('[plot] Changing camera view ({})'.format(view))
+        self.__camera_view = view
+        self.camera_views_dict[view]()
+
+    def update_views_dict(self):
+        self.update_waveform_views_dict()
+        self.update_camera_views_dict()
+
+    def update_waveform_views_dict(self):
+        # Default views
+        def view_adc():
+            self.waveform_yaxis_label = 'Amplitude (ADC)'
+            array = self.event.dl0.tel[self.telid].adc_samples[0]
+            # self.data_min = np.min(array[np.nonzero(array)])
+            # self.data_max = np.max(array)
+            self.waveform_data = array
+
+        views = {
+            'adc': lambda: view_adc()
+        }
+
+        # Origin-specific views
+        if self.input_file:
+            if self.input_file.origin == 'targetio':
+                def view_cells():
+                    self.waveform_yaxis_label = 'CellID'
+                    array = self.event.dl0.tel[self.telid].cells
+                    self.waveform_data = array
+
+                views['cells'] = lambda: view_cells()
+
+        # Calibration views
+        if self.calibrate and self.calib_params:
+            def view_pededestal_subtracted():
+                self.waveform_yaxis_label = 'Amplitude (ADC-ped)'
+                ev = self.event.dl1.tel[self.telid]
+                array = ev.pedestal_subtracted_adc[0]
+                self.waveform_data = array
+
+            views['pedestal_subtracted'] = lambda: view_pededestal_subtracted()
+
+        self.waveform_views_dict = views
+        if self.tk_activated:
+            self.update_tk_om(self.om_waveform_view,
+                              self._wf_views_callback,
+                              self.waveform_views_dict.keys())
+
+    def update_camera_views_dict(self):
+        # Default views
+        def view_adc():
+            self.camera_axis_label = 'Amplitude (ADC)'
             array = self.event.dl0.tel[self.telid].adc_samples[0]
             self.data_min = np.min(array[np.nonzero(array)])
             self.data_max = np.max(array)
-            self.waveform_data = array
-        elif self.waveform_data_type == 'cells':
-            array = self.event.dl0.tel[self.telid].cells
-            self.waveform_data = array
+            self.camera_image = array[:, int(self.current_time)]
 
-    def set_camera_image(self):
-        if self.camera_image_type == 'adc':
-            self.camera_image = self.waveform_data[:, int(self.current_time)]
-        elif self.waveform_data_type == 'cells':
-            array = self.waveform_data[:, int(self.current_time)]
-            self.data_min = np.min(array[np.nonzero(array)])-5
-            self.data_max = np.max(array)
-            self.camera_image = array
+        views = {
+            'adc': lambda: view_adc()
+        }
+
+        # Origin-specific views
+        if self.input_file:
+            if self.input_file.origin == 'targetio':
+                def view_cells():
+                    self.camera_axis_label = 'CellID'
+                    wf = self.event.dl0.tel[self.telid].cells
+                    array = wf[:, int(self.current_time)]
+                    self.data_min = np.min(array[np.nonzero(array)]) - 5
+                    self.data_max = np.max(array)
+                    self.camera_image = array
+
+                views['cells'] = lambda: view_cells()
+
+        # Calibration views
+        if self.calibrate and self.calib_params:
+            def view_pededestal_subtracted():
+                self.camera_axis_label = 'Amplitude (ADC-ped)'
+                ev = self.event.dl1.tel[self.telid]
+                array = ev.pedestal_subtracted_adc[0]
+                self.data_min = np.min(array[np.nonzero(array)])
+                self.data_max = np.max(array)
+                self.camera_image = array[:, int(self.current_time)]
+
+            def view_pe_charge():
+                self.camera_axis_label = 'Amplitude (pe)'
+                ev = self.event.dl1.tel[self.telid]
+                array = ev.pe_charge
+                self.data_min = np.min(array[np.nonzero(array)])
+                self.data_max = np.max(array)
+                self.camera_image = array[:]
+
+            def view_peak_pos():
+                self.camera_axis_label = 'Peakpos (ns)'
+                ev = self.event.dl1.tel[self.telid]
+                array = ev.peakpos
+                self.data_min = np.min(array[np.nonzero(array)])
+                self.data_max = np.max(array)
+                self.camera_image = array[:]
+
+            views['pedestal_subtracted'] = lambda: view_pededestal_subtracted()
+            views['pe_charge'] = lambda: view_pe_charge()
+            views['peak_pos'] = lambda: view_peak_pos()
+
+        self.camera_views_dict = views
+        if self.tk_activated:
+            self.update_tk_om(self.om_camera_view,
+                              self._c_views_callback,
+                              self.camera_views_dict.keys())
 
     def setup_matplotlib_widgets(self):
         if not self.ts_list:
@@ -413,8 +631,12 @@ class InteractiveSourcePlotter:
         self.add_tk_event_id_picker()
         self.add_tk_telid_picker()
         self.add_tk_print_values()
+        self.add_tk_waveform_views_dropdown()
+        self.add_tk_camera_views_dropdown()
+        self.add_tk_calibration_settings_button()
+        self.add_tk_calibrate_checkbox()
 
-        self.add_quit()
+        # self.add_quit()
 
     def add_tk_event_index_picker(self):
         l_event = tk.Label(self._root, text="Event_index")
@@ -481,6 +703,96 @@ class InteractiveSourcePlotter:
         button = tk.Button(master=self._root, text='Quit', command=sys.exit)
         button.pack(side=tk.BOTTOM)
 
+    def _wf_views_callback(self, val):
+        self.wf_view_var.set(val)
+        self.waveform_view = val
+
+    def add_tk_waveform_views_dropdown(self):
+        choices = self.waveform_views_dict.keys()
+
+        self.wf_view_var = tk.StringVar(self._root)
+        self.wf_view_var.set(self.waveform_view)  # initial value
+
+        self.om_waveform_view = tk.OptionMenu(self._root, self.wf_view_var,
+                                              *tuple(choices),
+                                              command=self._wf_views_callback)
+        self.om_waveform_view.pack(side=tk.RIGHT)
+
+        l_waveform_view = tk.Label(self._root, text="Waveform")
+        l_waveform_view.pack(side=tk.RIGHT)
+
+    def _c_views_callback(self, val):
+        self.c_view_var.set(val)
+        self.camera_view = val
+
+    def add_tk_camera_views_dropdown(self):
+        choices = self.camera_views_dict.keys()
+
+        self.c_view_var = tk.StringVar(self._root)
+        self.c_view_var.set(self.camera_view)  # initial value
+
+        self.om_camera_view = tk.OptionMenu(self._root, self.c_view_var,
+                                            *tuple(choices),
+                                            command=self._c_views_callback)
+        self.om_camera_view.pack(side=tk.RIGHT)
+
+        l_camera_view = tk.Label(self._root, text="Camera")
+        l_camera_view.pack(side=tk.RIGHT)
+
+    def add_tk_calibration_settings_button(self):
+        b = tk.Button(self._root, text="Calibration Parameters",
+                      command=self.calibration_popout)
+        b.pack(side=tk.RIGHT)
+
+    def calibration_popout(self):
+        if self.calib_popout:
+            self.calib_popout.destroy()
+        self.calib_popout = tk.Toplevel()
+        self.calib_popout.title("About this application...")
+
+        if not self.calib_params:
+            return
+
+        entry_dict = {}
+        i = 0
+        d, inv = integrator_dict()
+        for key, val in self.calib_params.items():
+            tk.Label(self.calib_popout, text=key).grid(row=i)
+            entry_dict[key] = tk.Entry(self.calib_popout)
+            entry_dict[key].grid(row=i, column=1)
+            if val:
+                entry_dict[key].delete(0, "end")
+                if key == 'integrator':
+                    val = inv[val]
+                entry_dict[key].insert(0, val)
+            i += 1
+
+        def callback():
+            cmdline = []
+            for param, entry in entry_dict.items():
+                value = entry.get()
+                if value:
+                    cmdkey = '--'+param.replace('integration_', 'integration-')
+                    cmdline.append(cmdkey)
+                    cmdline.extend(value.split())
+            self.set_calibration_params(cmdline)
+            self.event = self.event
+            self.calib_popout.destroy()
+
+        b = tk.Button(self.calib_popout, text="Calibrate",
+                      command=callback)
+        b.grid(row=i, column=0, columnspan=2)
+
+    def add_tk_calibrate_checkbox(self):
+        var = tk.BooleanVar(self._root)
+
+        def callback():
+            self.calibrate = var.get()
+
+        c = tk.Checkbutton(self._root, text="Calibrate", variable=var,
+                           command=callback)
+        c.pack(side=tk.RIGHT)
+
     def update_tk_elements(self):
         self.s_event_index.delete(0, "end")
         self.s_event_index.insert(0, self.event_index)
@@ -489,12 +801,20 @@ class InteractiveSourcePlotter:
         self.s_telid.delete(0, "end")
         self.s_telid.insert(0, self.telid)
 
+    def update_tk_om(self, om, function, new_choices):
+        om['menu'].delete(0, 'end')
+        # var = tk.StringVar(self._root)
+        # var.set('')
+        for choice in new_choices:
+            om['menu'].add_command(label=choice,
+                                   command=lambda name=choice: function(name))
+
 
 def main():
-    fp = "/Users/Jason/Software/outputs/libCHEC/sky/cameradata_run1594.fits"
-    reader = 'targetio'
-    # fp = "/Users/Jason/Software/ctapipe/ctapipe-extra/datasets/gamma_test.simtel.gz"
-    # reader = 'hessio'
+    # fp = "/Users/Jason/Software/outputs/libCHEC/sky/cameradata_run1594.fits"
+    # reader = 'targetio'
+    fp = "/Users/Jason/Software/ctapipe/ctapipe-extra/datasets/gamma_test.simtel.gz"
+    reader = 'hessio'
 
     input_file = InputFile(fp, reader)
 
