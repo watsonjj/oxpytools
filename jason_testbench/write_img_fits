@@ -1,5 +1,9 @@
 #!python
 
+"""
+Script to write fits file for Laurel
+"""
+
 from astropy.utils.compat import argparse
 from astropy import log
 from astropy.table import Table
@@ -13,7 +17,7 @@ from ctapipe.calib.camera.calibrators import calibration_arguments
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Create a gif of an event')
+    parser = argparse.ArgumentParser(description='Create a gif of an waveforms')
     parser.add_argument('-f', '--file', dest='input_path', action='store',
                         required=True, help='path to the input file')
     parser.add_argument('-o', '--output', dest='output_path', action='store',

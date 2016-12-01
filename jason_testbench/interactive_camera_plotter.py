@@ -211,7 +211,7 @@ class InteractiveSourcePlotter:
         self.__waveform_view = None
         self.__camera_view = None
 
-        # self.event = None
+        # self.waveforms = None
         # self.event_index = None
         # self.event_id = None
         # self.telid = None
@@ -261,7 +261,7 @@ class InteractiveSourcePlotter:
         self.geom_dict = {}
         self.set_calibration_params()
         self.update_views_dict()
-        self.event_id_list = file.get_list_of_event_ids()
+        self.event_id_list = file.event_id_list
         self.event = file.get_event(0)
 
     @property
@@ -283,10 +283,10 @@ class InteractiveSourcePlotter:
     @event.setter
     def event(self, event_container):
         ev = event_container
-        log.info('[plot] Switching event (index={}, id={})'
+        log.info('[plot] Switching waveforms (index={}, id={})'
                  .format(self.event_index, self.event_id))
         if self.calibrate and self.calib_params:
-            log.info('[plot] Calibrating event')
+            log.info('[plot] Calibrating waveforms')
             ev = calibrate_event(ev, self.calib_params, self.geom_dict)
         self.__event = ev
         self.__event_index = ev.count
@@ -344,8 +344,8 @@ class InteractiveSourcePlotter:
         self.waveform_view = self.waveform_view
 
         if not self.camera:
-            pixel_pos = self.event.meta.pixel_pos[val]
-            optical_foclen = self.event.meta.optical_foclen[val]
+            pixel_pos = self.event.inst.pixel_pos[val]
+            optical_foclen = self.event.inst.optical_foclen[val]
             if val not in self.geom_dict:
                 self.geom = CameraGeometry.guess(*pixel_pos, optical_foclen)
                 self.geom_dict[val] = self.geom
@@ -441,7 +441,7 @@ class InteractiveSourcePlotter:
     @calibrate.setter
     def calibrate(self, flag):
         self.__calibrate = flag
-        # Re-set event so it can be calibrated
+        # Re-set waveforms so it can be calibrated
         if flag:
             log.info('[plot] Calibration activated')
             self.event = self.event
@@ -811,10 +811,15 @@ class InteractiveSourcePlotter:
 
 
 def main():
-    # fp = "/Users/Jason/Software/outputs/libCHEC/sky/cameradata_run1594.fits"
-    # reader = 'targetio'
-    fp = "/Users/Jason/Software/ctapipe/ctapipe-extra/datasets/gamma_test.simtel.gz"
-    reader = 'hessio'
+    fp = "/Users/Jason/Software/outputs/libCHEC/sky/cameradata_run1594.fits"
+    reader = 'targetio'
+    # fp = "/Users/Jason/Software/ctapipe/ctapipe-extra/datasets/gamma_test.simtel.gz"
+    # reader = 'hessio'
+    # fp = "/Users/Jason/Software/outputs/sim_telarray/test_telescope_multitel5.gz"
+    # fp = "/Users/Jason/Software/outputs/sim_telarray/meudon_gamma/simtel_runmeudon_gamma_30tel_30deg_1.gz"
+    # reader = 'hessio'
+    fp = "/Users/Jason/Software/outputs/lab/2016-11-23/run0.fits"
+    reader = 'targetio'
 
     input_file = InputFile(fp, reader)
 

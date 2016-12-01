@@ -19,7 +19,7 @@ from math import sqrt, ceil, log as logarithm
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Create a gif of an event')
+    parser = argparse.ArgumentParser(description='Create a gif of an waveforms')
     parser.add_argument('-f', '--file', dest='input_paths', action='store', nargs='*',
                         required=True, help='path to the input files')
 
